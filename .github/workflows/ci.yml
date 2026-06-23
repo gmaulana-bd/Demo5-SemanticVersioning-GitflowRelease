@@ -1,0 +1,30 @@
+name: CI
+
+# AXA Secure SDLC Training - Demo 5 (Slide 51), Activities 1 and 2
+# Runs build and tests on every PR into develop and on pushes to develop/main.
+# Combined with branch protection (2 required approvals including a Security
+# Champion), this enforces the review gate the slide describes.
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ develop, main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build and test
+        run: mvn -B clean verify

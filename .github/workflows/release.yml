@@ -1,0 +1,100 @@
+name: Release
+
+# AXA Secure SDLC Training - Demo 5 (Slide 51)
+# Semantic Versioning and Gitflow release workflow.
+#
+# This workflow is triggered MANUALLY when you are ready to cut a release.
+# It performs the release sequence the slide describes:
+#   1. Strip -SNAPSHOT from the version (1.3.4-SNAPSHOT -> 1.3.4)
+#   2. Build, test, generate a CycloneDX SBOM
+#   3. Tag the release (v1.3.4) and publish the artifact to a registry
+#   4. Bump to the next development version (1.3.5-SNAPSHOT) and commit
+#
+# NOTE ON THE REGISTRY: AXA publishes to JFrog Artifactory. This demo
+# publishes to GitHub Packages instead, because it is a real Maven registry,
+# free, and built into GitHub (no extra infrastructure). The mechanism is
+# identical; only the repository URL and credentials differ. The artifact
+# genuinely gets published, so the audience sees a real registry entry.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Release version (without -SNAPSHOT), e.g. 1.3.4'
+        required: true
+      next_version:
+        description: 'Next development version (without -SNAPSHOT), e.g. 1.3.5'
+        required: true
+
+permissions:
+  contents: write    # to commit version bumps and push the tag
+  packages: write    # to publish to GitHub Packages
+
+jobs:
+  release:
+    name: Cut Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: main          # releases are cut from main in this demo
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+          # configures ~/.m2/settings.xml to authenticate to GitHub Packages
+          server-id: github
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Activity 3: strip -SNAPSHOT to the release version
+      - name: Set release version (remove -SNAPSHOT)
+        run: |
+          mvn -B versions:set -DnewVersion=${{ inputs.release_version }} -DgenerateBackupPoms=false
+          echo "Version set to ${{ inputs.release_version }}"
+
+      - name: Build, test, and generate SBOM
+        run: mvn -B clean package
+        # The CycloneDX plugin (bound to package in the pom) writes the SBOM to
+        # target/bom.xml and target/bom.json during this step.
+
+      - name: Upload SBOM as build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ inputs.release_version }}
+          path: target/bom.*
+
+      # Activity 4: publish the released artifact to the registry
+      - name: Publish to GitHub Packages
+        env:
+          MAVEN_USERNAME: ${{ github.actor }}
+          MAVEN_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: mvn -B deploy -DskipTests
+
+      # Activity 3: tag the release
+      - name: Commit release version and tag
+        run: |
+          git add pom.xml
+          git commit -m "Release v${{ inputs.release_version }}"
+          git tag -a "v${{ inputs.release_version }}" -m "Release v${{ inputs.release_version }}"
+
+      # Activity 4: bump to the next development version
+      - name: Bump to next development version
+        run: |
+          mvn -B versions:set -DnewVersion=${{ inputs.next_version }}-SNAPSHOT -DgenerateBackupPoms=false
+          git add pom.xml
+          git commit -m "Start next development iteration ${{ inputs.next_version }}-SNAPSHOT"
+
+      - name: Push commits and tag
+        run: |
+          git push origin main
+          git push origin "v${{ inputs.release_version }}"
