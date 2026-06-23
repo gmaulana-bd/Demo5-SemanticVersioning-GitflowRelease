@@ -25,6 +25,11 @@
             <version>5.11.3</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.17.0</version>
+    </dependency>
     </dependencies>
 
     <!-- Publish released artifacts to GitHub Packages (the free stand-in for
