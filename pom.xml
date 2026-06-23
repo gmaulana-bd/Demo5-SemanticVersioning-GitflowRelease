@@ -8,7 +8,7 @@
     <artifactId>release-demo</artifactId>
     <!-- Starts as a development SNAPSHOT version. The release workflow strips
          -SNAPSHOT to cut a release, then bumps to the next -SNAPSHOT. -->
-    <version>1.3.4-SNAPSHOT</version>
+    <version>1.3.5</version>
     <packaging>jar</packaging>
 
     <properties>
